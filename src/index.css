@@ -1,0 +1,69 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter', 'Noto Sans JP', ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+}
+
+@keyframes task-complete-pop {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+    filter: brightness(1);
+  }
+  35% {
+    transform: scale(1.02);
+    opacity: 1;
+    filter: brightness(1.05) saturate(1.05);
+  }
+  100% {
+    transform: scale(0.94) translateY(-10px);
+    opacity: 0;
+    filter: brightness(1.08);
+  }
+}
+
+@keyframes check-draw {
+  0% {
+    transform: scale(0) rotate(-10deg);
+    opacity: 0;
+  }
+  45% {
+    transform: scale(1.12) rotate(3deg);
+    opacity: 1;
+  }
+  70% {
+    transform: scale(0.96) rotate(-1deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+@keyframes celebrate-ring {
+  0% {
+    transform: scale(0.88);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(1.32);
+    opacity: 0;
+  }
+}
+
+.animate-task-complete {
+  animation: task-complete-pop 0.65s cubic-bezier(0.34, 1.15, 0.64, 1) forwards;
+}
+
+.animate-check-draw {
+  animation: check-draw 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) 0.08s both;
+}
+
+.animate-celebrate-ring {
+  animation: celebrate-ring 0.72s ease-out forwards;
+}
