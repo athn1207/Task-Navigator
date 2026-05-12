@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type MutableRefObject, type PointerEvent } from 'react'
 
 /** Web Speech API（Chrome / Safari webkit）。DOM lib に無い場合の最小定義 */
 interface SpeechGrammarList {
@@ -85,7 +85,13 @@ type SetText = (updater: string | ((prev: string) => string)) => void
  * - 短いタップ: 聞き取り開始 ↔ 終了のトグル
  * - 約 280ms 以上押し続けたあと離す: 押している間だけ聞き取り（離すと終了）
  */
-export function useSpeechDictation(inputValue: string, setInputValue: SetText, disabled: boolean) {
+export function useSpeechDictation(
+  inputValue: string,
+  setInputValue: SetText,
+  disabled: boolean,
+  /** 音声の onresult は setState より先に走ることがあるため、送信時はここを同期して最新文字列を保つ */
+  draftSyncRef?: MutableRefObject<string>,
+) {
   const [isListening, setIsListening] = useState(false)
   const [speechError, setSpeechError] = useState<string | null>(null)
 
@@ -136,7 +142,7 @@ export function useSpeechDictation(inputValue: string, setInputValue: SetText, d
       r.interimResults = true
       r.maxAlternatives = 1
 
-      baseTextRef.current = inputValueRef.current
+      baseTextRef.current = draftSyncRef?.current ?? inputValueRef.current
       finalBufferRef.current = ''
 
       r.onresult = (event: SpeechRecognitionEvent) => {
@@ -150,6 +156,7 @@ export function useSpeechDictation(inputValue: string, setInputValue: SetText, d
         const base = baseTextRef.current
         const finalSoFar = finalBufferRef.current
         const merged = [base.trimEnd(), finalSoFar.trim(), interim.trim()].filter(Boolean).join(' ')
+        if (draftSyncRef) draftSyncRef.current = merged
         setInputValue(merged)
       }
 
@@ -185,7 +192,7 @@ export function useSpeechDictation(inputValue: string, setInputValue: SetText, d
       setSpeechError('音声入力を開始できませんでした')
       stopInternal()
     }
-  }, [disabled, setInputValue, stopInternal])
+  }, [disabled, draftSyncRef, setInputValue, stopInternal])
 
   const clearHoldTimer = useCallback(() => {
     if (holdTimerRef.current !== null) {
@@ -195,7 +202,7 @@ export function useSpeechDictation(inputValue: string, setInputValue: SetText, d
   }, [])
 
   const onPointerDown = useCallback(
-    (e: React.PointerEvent) => {
+    (e: PointerEvent<HTMLButtonElement>) => {
       if (disabled) return
       if (e.button !== 0) return
       e.currentTarget.setPointerCapture?.(e.pointerId)
@@ -218,7 +225,7 @@ export function useSpeechDictation(inputValue: string, setInputValue: SetText, d
   )
 
   const onPointerUp = useCallback(
-    (e: React.PointerEvent) => {
+    (e: PointerEvent<HTMLButtonElement>) => {
       if (disabled) return
       if (e.button !== 0) return
       try {
@@ -250,7 +257,7 @@ export function useSpeechDictation(inputValue: string, setInputValue: SetText, d
   )
 
   const onPointerCancel = useCallback(
-    (e: React.PointerEvent) => {
+    (e: PointerEvent<HTMLButtonElement>) => {
       if (disabled) return
       try {
         e.currentTarget.releasePointerCapture?.(e.pointerId)

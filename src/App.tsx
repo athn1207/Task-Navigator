@@ -277,7 +277,16 @@ function loadLastSubmittedFromStorage(): string | null {
 }
 
 export default function App() {
-  const [inputValue, setInputValue] = useState('')
+  /** 送信時は React  state より前に確定する音声ドラフトを保持（Speech onresult と送信の競合対策） */
+  const inputDraftRef = useRef('')
+  const [inputValue, setInputValueState] = useState('')
+  const setInputValue = useCallback((u: string | ((prev: string) => string)) => {
+    setInputValueState((prev) => {
+      const next = typeof u === 'function' ? (u as (p: string) => string)(prev) : u
+      inputDraftRef.current = next
+      return next
+    })
+  }, [])
   const [isSending, setIsSending] = useState(false)
   const [loadingRemote, setLoadingRemote] = useState(REMOTE)
   const [syncError, setSyncError] = useState<string | null>(null)
@@ -311,6 +320,7 @@ export default function App() {
     inputValue,
     setInputValue,
     isSending || loadingRemote,
+    inputDraftRef,
   )
 
   const skipBlurCommit = useRef(false)
@@ -439,7 +449,7 @@ export default function App() {
   useEffect(() => () => clearCompleteTimer(), [clearCompleteTimer])
 
   const submitInput = () => {
-    const text = inputValue.trim()
+    const text = inputDraftRef.current.trim()
     if (!text || isSending) return
     setInputValue('')
     console.log(text)
@@ -1318,7 +1328,11 @@ export default function App() {
             autoComplete="off"
             placeholder="ざっくり入力…"
             value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
+            onChange={(e) => {
+              const v = e.target.value
+              inputDraftRef.current = v
+              setInputValueState(v)
+            }}
             disabled={isSending || loadingRemote}
             className={`min-w-0 flex-1 ${CARD_ROUND} border border-white/20 bg-white/40 px-4 py-4 text-[16px] font-normal leading-relaxed text-slate-600 outline-none ring-0 backdrop-blur-xl transition-[border-color,box-shadow,background-color] placeholder:text-slate-400/90 focus:border-sky-300/50 focus:bg-white/55 focus:shadow-[0_0_0_2px_rgba(186,230,253,0.45)] disabled:opacity-55 sm:px-5 sm:py-4 md:py-[1.125rem]`}
           />
