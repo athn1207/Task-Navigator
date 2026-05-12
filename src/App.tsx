@@ -14,6 +14,7 @@ import {
   appendTodoTasks,
   updateTaskById,
 } from './tasksDb'
+import { isSpeechRecognitionSupported, useSpeechDictation } from './useSpeechDictation'
 
 type MainMetaField = 'time' | 'context' | 'tags'
 
@@ -300,6 +301,17 @@ export default function App() {
   const [filterTime, setFilterTime] = useState<TimeFilterValue>('all')
   /** キューから選んで青枠に出すタスク。null ならフィルター内で sort 最古をメインに */
   const [mainFocusTaskId, setMainFocusTaskId] = useState<string | null>(null)
+  const [micAvailable, setMicAvailable] = useState(false)
+
+  useEffect(() => {
+    setMicAvailable(isSpeechRecognitionSupported())
+  }, [])
+
+  const speechDictation = useSpeechDictation(
+    inputValue,
+    setInputValue,
+    isSending || loadingRemote,
+  )
 
   const skipBlurCommit = useRef(false)
   const skipMainMetaBlur = useRef(false)
@@ -1310,6 +1322,41 @@ export default function App() {
             disabled={isSending || loadingRemote}
             className={`min-w-0 flex-1 ${CARD_ROUND} border border-white/20 bg-white/40 px-4 py-4 text-[16px] font-normal leading-relaxed text-slate-600 outline-none ring-0 backdrop-blur-xl transition-[border-color,box-shadow,background-color] placeholder:text-slate-400/90 focus:border-sky-300/50 focus:bg-white/55 focus:shadow-[0_0_0_2px_rgba(186,230,253,0.45)] disabled:opacity-55 sm:px-5 sm:py-4 md:py-[1.125rem]`}
           />
+          {micAvailable ? (
+            <button
+              type="button"
+              {...speechDictation.micPointerHandlers}
+              disabled={isSending || loadingRemote}
+              aria-label={
+                speechDictation.isListening
+                  ? '音声入力を終了（タップ）または押し続けて入力'
+                  : '音声入力を開始（タップ）または長押しで入力'
+              }
+              aria-pressed={speechDictation.isListening}
+              title="タップで開始／終了。約0.3秒以上押し続けると離すまで入力します。"
+              className={`flex h-12 w-12 shrink-0 touch-manipulation items-center justify-center ${CARD_ROUND} border shadow-[0_4px_20px_-6px_rgba(8,112,184,0.2)] backdrop-blur-xl transition-[background-color,box-shadow,opacity,border-color] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300/60 disabled:pointer-events-none disabled:opacity-40 sm:h-[3.25rem] sm:w-[3.25rem] ${
+                speechDictation.isListening
+                  ? 'border-sky-400/80 bg-sky-100/90 text-sky-800 ring-2 ring-sky-400/50'
+                  : 'border-white/35 bg-white/50 text-slate-600 hover:bg-white/65'
+              }`}
+            >
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M12 14a3 3 0 0 0 3-3V7a3 3 0 1 0-6 0v4a3 3 0 0 0 3 3Z" />
+                <path d="M19 11a7 7 0 0 1-14 0" />
+                <path d="M12 18v3M8 21h8" />
+              </svg>
+            </button>
+          ) : null}
           <button
             type="submit"
             aria-label={isSending ? '送信中' : '送信'}
@@ -1350,6 +1397,14 @@ export default function App() {
             )}
           </button>
         </form>
+        {speechDictation.speechError ? (
+          <p
+            className="mx-auto mt-1.5 w-full max-w-3xl px-1 text-center text-[12px] font-medium leading-snug text-rose-700/95 sm:text-[13px]"
+            role="alert"
+          >
+            {speechDictation.speechError}
+          </p>
+        ) : null}
         {!loadingRemote ? (
           <div
             className="mx-auto mt-2 w-full max-w-3xl space-y-2 sm:mt-2.5"
