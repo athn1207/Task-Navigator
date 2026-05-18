@@ -475,6 +475,9 @@ export default function App() {
         }
         if (!main?.title.trim()) {
           console.warn('Dify: メインタスクが空です', raw)
+          setSyncError(
+            'タスクを生成できませんでした。Dify の応答形式（outputs.result）を確認してください。',
+          )
           return
         }
         const newTasks = [fieldsToTask(main), ...next.map(fieldsToTask)]
@@ -507,6 +510,11 @@ export default function App() {
         closeAllEdits()
       } catch (e) {
         console.error(e)
+        const msg =
+          e instanceof Error
+            ? e.message
+            : '送信に失敗しました。Vercel の環境変数（VITE_DIFY_*）とブラウザの Console を確認してください。'
+        setSyncError(msg)
       } finally {
         setIsSending(false)
       }

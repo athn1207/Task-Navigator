@@ -25,10 +25,14 @@ function getConfig(): { apiKey: string; url: string } {
   const apiKey = import.meta.env.VITE_DIFY_API_KEY?.trim() ?? ''
   const baseUrl = import.meta.env.VITE_DIFY_API_URL?.trim() ?? ''
   if (!apiKey || apiKey.includes('ここにコピー')) {
-    throw new Error('.env の VITE_DIFY_API_KEY に実際の API キーを設定してください')
+    throw new Error(
+      'VITE_DIFY_API_KEY がビルドに含まれていません。Vercel の Environment Variables を設定し、Redeploy してください（変数の保存だけでは反映されません）。',
+    )
   }
   if (!baseUrl || baseUrl.includes('ここにコピー')) {
-    throw new Error('.env の VITE_DIFY_API_URL に実際のベース URL を設定してください')
+    throw new Error(
+      'VITE_DIFY_API_URL がビルドに含まれていません。Vercel の Environment Variables を設定し、Redeploy してください。',
+    )
   }
   return { apiKey, url: workflowRunUrl(normalizeBaseUrl(baseUrl)) }
 }
