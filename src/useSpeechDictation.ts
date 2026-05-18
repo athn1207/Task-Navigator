@@ -80,6 +80,10 @@ const HOLD_MS = 280
 
 type SetText = (updater: string | ((prev: string) => string)) => void
 
+function mergeRecognitionText(base: string, finalSoFar: string, interim: string): string {
+  return [base.trimEnd(), finalSoFar.trim(), interim.trim()].filter(Boolean).join(' ')
+}
+
 /**
  * フッター入力向け音声入力。
  * - 短いタップ: 聞き取り開始 ↔ 終了のトグル
@@ -108,7 +112,22 @@ export function useSpeechDictation(
     inputValueRef.current = inputValue
   }, [inputValue])
 
+  /** onresult / 終了時に ref と React state を同時更新 */
+  const commitRecognizedText = useCallback(
+    (merged: string) => {
+      if (draftSyncRef) draftSyncRef.current = merged
+      setInputValue(merged)
+    },
+    [draftSyncRef, setInputValue],
+  )
+
+  const flushPendingRecognition = useCallback(() => {
+    const merged = mergeRecognitionText(baseTextRef.current, finalBufferRef.current, '')
+    if (merged.trim()) commitRecognizedText(merged)
+  }, [commitRecognizedText])
+
   const stopInternal = useCallback(() => {
+    flushPendingRecognition()
     listeningRef.current = false
     setIsListening(false)
     const r = recognitionRef.current
@@ -125,7 +144,7 @@ export function useSpeechDictation(
     recognitionRef.current = null
     baseTextRef.current = ''
     finalBufferRef.current = ''
-  }, [])
+  }, [flushPendingRecognition])
 
   const startInternal = useCallback(() => {
     if (disabled) return
@@ -153,11 +172,8 @@ export function useSpeechDictation(
           if (res.isFinal) finalBufferRef.current += piece
           else interim += piece
         }
-        const base = baseTextRef.current
-        const finalSoFar = finalBufferRef.current
-        const merged = [base.trimEnd(), finalSoFar.trim(), interim.trim()].filter(Boolean).join(' ')
-        if (draftSyncRef) draftSyncRef.current = merged
-        setInputValue(merged)
+        const merged = mergeRecognitionText(baseTextRef.current, finalBufferRef.current, interim)
+        commitRecognizedText(merged)
       }
 
       r.onerror = (ev: SpeechRecognitionErrorEvent) => {
@@ -177,6 +193,7 @@ export function useSpeechDictation(
       }
 
       r.onend = () => {
+        flushPendingRecognition()
         recognitionRef.current = null
         if (listeningRef.current) {
           listeningRef.current = false
@@ -192,7 +209,7 @@ export function useSpeechDictation(
       setSpeechError('音声入力を開始できませんでした')
       stopInternal()
     }
-  }, [disabled, draftSyncRef, setInputValue, stopInternal])
+  }, [disabled, commitRecognizedText, flushPendingRecognition, stopInternal])
 
   const clearHoldTimer = useCallback(() => {
     if (holdTimerRef.current !== null) {

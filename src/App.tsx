@@ -277,15 +277,22 @@ function loadLastSubmittedFromStorage(): string | null {
 }
 
 export default function App() {
-  /** 送信時は React  state より前に確定する音声ドラフトを保持（Speech onresult と送信の競合対策） */
+  /** 送信時は React state より先に確定する音声ドラフト（onresult と送信の競合対策） */
   const inputDraftRef = useRef('')
+  const taskInputRef = useRef<HTMLInputElement>(null)
   const [inputValue, setInputValueState] = useState('')
+  /** ref と state を同時に更新（音声 onresult は setState より先に送信されることがある） */
   const setInputValue = useCallback((u: string | ((prev: string) => string)) => {
-    setInputValueState((prev) => {
-      const next = typeof u === 'function' ? (u as (p: string) => string)(prev) : u
-      inputDraftRef.current = next
-      return next
-    })
+    if (typeof u === 'function') {
+      setInputValueState((prev) => {
+        const next = u(prev)
+        inputDraftRef.current = next
+        return next
+      })
+    } else {
+      inputDraftRef.current = u
+      setInputValueState(u)
+    }
   }, [])
   const [isSending, setIsSending] = useState(false)
   const [loadingRemote, setLoadingRemote] = useState(REMOTE)
@@ -449,7 +456,12 @@ export default function App() {
   useEffect(() => () => clearCompleteTimer(), [clearCompleteTimer])
 
   const submitInput = () => {
-    const text = inputDraftRef.current.trim()
+    const text = (
+      inputDraftRef.current ||
+      inputValue ||
+      taskInputRef.current?.value ||
+      ''
+    ).trim()
     if (!text || isSending) return
     setInputValue('')
     console.log(text)
@@ -1323,16 +1335,13 @@ export default function App() {
             タスクを入力
           </label>
           <input
+            ref={taskInputRef}
             id="task-input"
             type="text"
             autoComplete="off"
             placeholder="ざっくり入力…"
             value={inputValue}
-            onChange={(e) => {
-              const v = e.target.value
-              inputDraftRef.current = v
-              setInputValueState(v)
-            }}
+            onChange={(e) => setInputValue(e.target.value)}
             disabled={isSending || loadingRemote}
             className={`min-w-0 flex-1 ${CARD_ROUND} border border-white/20 bg-white/40 px-4 py-4 text-[16px] font-normal leading-relaxed text-slate-600 outline-none ring-0 backdrop-blur-xl transition-[border-color,box-shadow,background-color] placeholder:text-slate-400/90 focus:border-sky-300/50 focus:bg-white/55 focus:shadow-[0_0_0_2px_rgba(186,230,253,0.45)] disabled:opacity-55 sm:px-5 sm:py-4 md:py-[1.125rem]`}
           />
